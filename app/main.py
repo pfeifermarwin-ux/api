@@ -1,13 +1,13 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import psycopg
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
 
 app = FastAPI(
     root_path="/api"
 )
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+password_hash = PasswordHash.recommended()
 
 conn = psycopg.connect(
     host="100.125.8.79",
@@ -18,25 +18,32 @@ conn = psycopg.connect(
 )
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return password_hash.hash(password)
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(password: str, hashed_password: str) -> bool:
+    return password_hash.verify(password, hashed_password)
 
 @app.get("/")
 def home():
     return {"message": "online"}
 
-class user(BaseModel):
+class User(BaseModel):
     username: str
     password: str
 
 @app.post("/register")
-def register(user: user):
+def register(user: User):
     username = user.username
     password = user.password
     passwordHash = hash_password(password)
-    with conn.cursor() as cur:
-        cur.execute("INSERT INTO users (username, passwordhash) VALUES (%s, %s)", (username, passwordHash))
-        conn.commit()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO users (username, passwordhash) VALUES (%s, %s)", (username, passwordHash))
+            conn.commit()
+    except psycopg.errors.UniqueViolation:
+        conn.rollback()
+        return {
+            "status": "error",
+            "message": "Username already exists."
+        }
     return {"status": "success", "message": "User registered successfully."}

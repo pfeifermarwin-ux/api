@@ -1,4 +1,4 @@
 fastapi
 uvicorn[standard]
 psycopg[binary]
-passlib[bcrypt]
+pwdlib[argon2]
