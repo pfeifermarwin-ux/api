@@ -39,3 +39,4 @@ def register(user: user):
     with conn.cursor() as cur:
         cur.execute("INSERT INTO users (username, passwordhash) VALUES (%s, %s)", (username, passwordHash))
         conn.commit()
+    return {"status": "success", "message": "User registered successfully."}
