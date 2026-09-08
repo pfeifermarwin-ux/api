@@ -31,6 +31,14 @@ class User(BaseModel):
     username: str
     password: str
 
+class TokenCheck(BaseModel):
+    username: str
+    token: str
+
+class LogoutRequest(BaseModel):
+    token: str
+
+
 @app.post("/register")
 def register(user: User):
     username = user.username
@@ -77,7 +85,8 @@ def login(user: User):
         return {"status": "error", "message": str(e)}
 
 @app.post("/logout")
-def logout(token: str):
+def logout(data: LogoutRequest):
+    token = data.token
     if not token:
         return {"status": "error", "message": "Token is required."}
     try:
@@ -93,7 +102,9 @@ def logout(token: str):
         return {"status": "error", "message": str(e)}
 
 @app.post("/check_token")
-def check_token(token: str, username: str):
+def check_token(data: TokenCheck):
+    username = data.username
+    token = data.token
     if not token:
         return {"status": "error", "message": "Token is required."}
     try:
