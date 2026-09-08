@@ -91,3 +91,31 @@ def logout(token: str):
                 return {"status": "error", "message": "Invalid token."}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+@app.post("/check_token")
+def check_token(token: str, user: User):
+    if not token:
+        return {"status": "error", "message": "Token is required."}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT useruuid FROM users WHERE username = %s", (user.username,))
+            user_uuid = cur.fetchone()
+            if user_uuid:
+                cur.execute("SELECT passwordhash FROM users WHERE useruuid = %s", (user_uuid[0],))
+                stored_password_hash = cur.fetchone()
+                if stored_password_hash:
+                    if verify_password(user.password, stored_password_hash[0]):
+                        cur.execute("SELECT token FROM logins WHERE useruuid = %s AND token = %s", (user_uuid[0], token))
+                        token_info = cur.fetchone()
+                        if token_info:
+                            return {"status": "success", "message": "Token is valid."}
+                        else:
+                            return {"status": "error", "message": "Invalid token."}
+                    else:
+                        return {"status": "error", "message": "Incorrect password."}
+                else:
+                    return {"status": "error", "message": "User not found."}
+            else:
+                return {"status": "error", "message": "User not found."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
