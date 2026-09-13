@@ -171,5 +171,5 @@ def get_users(data: GetUsersRequest):
                     status_code=404,
                     detail="User not found"
                 )
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    except Exception:
+        raise
