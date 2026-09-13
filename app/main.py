@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import psycopg
 from pwdlib import PasswordHash
@@ -38,6 +38,9 @@ class TokenCheck(BaseModel):
 class LogoutRequest(BaseModel):
     token: str
 
+class GetUsersRequest(BaseModel):
+    username: str
+    token: str
 
 @app.post("/register")
 def register(user: User):
@@ -120,5 +123,53 @@ def check_token(data: TokenCheck):
                     return {"status": "error", "message": "Invalid token."}
             else:
                 return {"status": "error", "message": "User not found."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.get("/users")
+def get_users(data: GetUsersRequest):
+    username = data.username
+    token = data.token
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
+            user_uuid = cur.fetchone()
+            if user_uuid:
+                cur.execute("SELECT token FROM logins WHERE useruuid = %s AND token = %s", (user_uuid[0], token))
+                token_info = cur.fetchone()
+                if token_info:
+                    cur.execute("SELECT role FROM users WHERE useruuid = %s", (user_uuid,))
+                    role = cur.fetchone()
+                    if role:
+                        if role[0] == "ADMIN":
+                            cur.execute("SELECT * FROM users")
+                            users = cur.fetchall()
+                            if users:
+                                return{"status": "success", "users": users}
+                            else:
+                                raise HTTPException(
+                                    status_code=500,
+                                    detail="Users not found"
+                                )
+                        else:
+                            raise HTTPException(
+                                status_code=403,
+                                detail="Access denied; required permission is missing."
+                            )
+                    else:
+                        raise HTTPException(
+                            status_code=500,
+                            detail="User role is missing"
+                        )
+                else:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Token is invalid or expired"
+                    )
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail="User not found"
+                )
     except Exception as e:
         return {"status": "error", "message": str(e)}
