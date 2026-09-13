@@ -126,7 +126,7 @@ def check_token(data: TokenCheck):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-@app.get("/users")
+@app.post("/users")
 def get_users(data: GetUsersRequest):
     username = data.username
     token = data.token
