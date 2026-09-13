@@ -138,7 +138,7 @@ def get_users(data: GetUsersRequest):
                 cur.execute("SELECT token FROM logins WHERE useruuid = %s AND token = %s", (user_uuid[0], token))
                 token_info = cur.fetchone()
                 if token_info:
-                    cur.execute("SELECT role FROM users WHERE useruuid = %s", (user_uuid,))
+                    cur.execute("SELECT role FROM users WHERE useruuid = %s", (user_uuid[0],))
                     role = cur.fetchone()
                     if role:
                         if role[0] == "ADMIN":
