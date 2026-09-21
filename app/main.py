@@ -42,7 +42,7 @@ class GetUsersRequest(BaseModel):
     username: str
     token: str
 
-@app.post("/register")
+@app.post("/register", status_code=201)
 def register(user: User):
     username = user.username
     password = user.password
@@ -53,80 +53,97 @@ def register(user: User):
             conn.commit()
     except psycopg.errors.UniqueViolation:
         conn.rollback()
-        return {
-            "status": "error",
-            "message": "Username already exists."
-        }
+        raise HTTPException(
+            status_code=409,
+            detail="Username already exists"
+        )
     return {"status": "success", "message": "User registered successfully."}
 
 @app.post("/login")
 def login(user: User):
     username = user.username
     password = user.password
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
-            uuid = cur.fetchone()
-            if uuid:
-                cur.execute("SELECT passwordhash FROM users WHERE username = %s", (username,))
-                stored_password_hash = cur.fetchone()
-                if stored_password_hash:
-                    if verify_password(password, stored_password_hash[0]):
-                        cur.execute("INSERT INTO logins (useruuid) VALUES (%s) RETURNING token", (uuid[0],))
-                        login_info = cur.fetchone()
-                        conn.commit()
-                        if login_info:
-                            return {"status": "success", "token": login_info[0]}
-                        else:
-                            conn.rollback()
-                            return {"status": "error", "message": "Failed to create login session."}
+    with conn.cursor() as cur:
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
+        uuid = cur.fetchone()
+        if uuid:
+            cur.execute("SELECT passwordhash FROM users WHERE username = %s", (username,))
+            stored_password_hash = cur.fetchone()
+            if stored_password_hash:
+                if verify_password(password, stored_password_hash[0]):
+                    cur.execute("INSERT INTO logins (useruuid) VALUES (%s) RETURNING token", (uuid[0],))
+                    login_info = cur.fetchone()
+                    conn.commit()
+                    if login_info:
+                        return {"status": "success", "token": login_info[0]}
                     else:
-                        return {"status": "error", "message": "Incorrect password."}
-            else:
-                return {"status": "error", "message": "User not found."}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+                        conn.rollback()
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Failed to create login session"
+                        )
+                else:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Incorrect password"
+                    )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+
 
 @app.post("/logout")
 def logout(data: LogoutRequest):
     token = data.token
     if not token:
-        return {"status": "error", "message": "Token is required."}
-    try:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM logins WHERE token = %s", (token,))
-            deleted_rows = cur.rowcount
-            conn.commit()
-            if deleted_rows > 0:
-                return {"status": "success", "message": "Logged out successfully."}
-            else:
-                return {"status": "error", "message": "Invalid token."}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+        raise HTTPException(
+            status_code=401,
+            detail="Token is required"
+        )
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM logins WHERE token = %s", (token,))
+        deleted_rows = cur.rowcount
+        conn.commit()
+        if deleted_rows > 0:
+            return {"status": "success", "message": "Logged out successfully."}
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token"
+            )
+
 
 @app.post("/check_token")
 def check_token(data: TokenCheck):
     username = data.username
     token = data.token
     if not token:
-        return {"status": "error", "message": "Token is required."}
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
-            user_uuid = cur.fetchone()
-            if user_uuid:
-                cur.execute("SELECT token FROM logins WHERE useruuid = %s AND token = %s", (user_uuid[0], token))
-                token_info = cur.fetchone()
-                if token_info:
-                    return {"status": "success", "message": "Token is valid."}
-                else:
-                    return {"status": "error", "message": "Invalid token."}
+        raise HTTPException(
+            status_code=401,
+            detail="Token is required"
+        )
+    with conn.cursor() as cur:
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
+        user_uuid = cur.fetchone()
+        if user_uuid:
+            cur.execute("SELECT token FROM logins WHERE useruuid = %s AND token = %s", (user_uuid[0], token))
+            token_info = cur.fetchone()
+            if token_info:
+                return {"status": "success", "message": "Token is valid."}
             else:
-                return {"status": "error", "message": "User not found."}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid token"
+                )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
 
-@app.post("/users")
+@app.post("/get_users")
 def get_users(data: GetUsersRequest):
     username = data.username
     token = data.token
