@@ -194,7 +194,7 @@ def get_users(data: GetUsersRequest):
             )
 
 
-@app.get("/get_role")
+@app.post("/get_role")
 def get_role(data: GetRoleRequest):
     with conn.cursor() as cur:
         cur.execute("SELECTR useruuid FROM users WHERE username = %s", (data.username,))
