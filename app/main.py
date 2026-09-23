@@ -203,7 +203,7 @@ def get_role(data: GetRoleRequest):
             cur.execute("SELECT token FROM logins WHERE useruuid = %s and token = %s", (user_uuid[0], data.token,))
             token_info=cur.fetchone()
             if token_info:
-                cur.execute("SELECT role FROM users WHERE useruuid = %s", (user_uuid[0]))
+                cur.execute("SELECT role FROM users WHERE useruuid = %s", (user_uuid[0],))
                 role = cur.fetchone()
                 if role:
                     return{"status": "success", "role": role[0]}
