@@ -42,6 +42,10 @@ class GetUsersRequest(BaseModel):
     username: str
     token: str
 
+class GetRoleRequest(BaseModel):
+    username: str
+    token: str
+
 @app.post("/register", status_code=201)
 def register(user: User):
     username = user.username
@@ -143,6 +147,7 @@ def check_token(data: TokenCheck):
                 detail="User not found"
             )
 
+
 @app.post("/get_users")
 def get_users(data: GetUsersRequest):
     username = data.username
@@ -172,6 +177,36 @@ def get_users(data: GetUsersRequest):
                             status_code=403,
                             detail="Access denied; required permission is missing."
                         )
+                else:
+                    raise HTTPException(
+                        status_code=500,
+                        detail="User role is missing"
+                    )
+            else:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token is invalid or expired"
+                )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+
+
+@app.get("/get_role")
+def get_role(data: GetRoleRequest):
+    with conn.cursor() as cur:
+        cur.execute("SELECTR useruuid FROM users WHERE username = %s", (data.username,))
+        user_uuid=cur.fetchone()
+        if user_uuid:
+            cur.execute("SELECT token FROM logins WHERE useruuid = %s and token = %s", (user_uuid[0], data.token,))
+            token_info=cur.fetchone()
+            if token_info:
+                cur.execute("SELECT role FROM users WHERE useruuid = %s", (user_uuid[0]))
+                role = cur.fetchone()
+                if role:
+                    return{"status": "success", "role": role[0]}
                 else:
                     raise HTTPException(
                         status_code=500,
