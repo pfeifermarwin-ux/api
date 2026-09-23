@@ -197,7 +197,7 @@ def get_users(data: GetUsersRequest):
 @app.post("/get_role")
 def get_role(data: GetRoleRequest):
     with conn.cursor() as cur:
-        cur.execute("SELECTR useruuid FROM users WHERE username = %s", (data.username,))
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (data.username,))
         user_uuid=cur.fetchone()
         if user_uuid:
             cur.execute("SELECT token FROM logins WHERE useruuid = %s and token = %s", (user_uuid[0], data.token,))
