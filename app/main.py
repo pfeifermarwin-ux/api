@@ -163,8 +163,16 @@ def get_users(data: GetUsersRequest):
                 role = cur.fetchone()
                 if role:
                     if role[0] == "ADMIN":
-                        cur.execute("SELECT * FROM users")
-                        users = cur.fetchall()
+                        cur.execute("SELECT username, useruuid, createdat, role FROM users")
+                        users = [
+                            {
+                                "username": row[0],
+                                "useruuid": row[1],
+                                "createdat": row[2],
+                                "role": row[3]
+                            }
+                            for row in cur.fetchall()
+                        ]
                         if users:
                             return{"status": "success", "users": users}
                         else:
