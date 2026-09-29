@@ -69,7 +69,7 @@ def register(user: RegisterRequest):
     passwordHash = hash_password(password)
     try:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO users (username, passwordhash, name, email, birthdate) VALUES (%s, %s, %s, %s, %s)", (username, passwordHash, name, email, birthdate,))
+            cur.execute("INSERT INTO users (username, passwordhash, name, email, birthdate) VALUES (%s, %s, %s, %s, %s)", (username, passwordHash, name, email, birthdate))
             conn.commit()
     except psycopg.errors.UniqueViolation:
         conn.rollback()
@@ -256,7 +256,29 @@ def get_user_info(data: GetUserInfoRequest):
             cur.execute("SELECT token FROM logins WHERE useruuid = %s and token = %s", (request_user_uuid[0], data.requestUserToken,))
             token_info=cur.fetchone()
             if token_info:
-                pass
+                cur.execute("SELECT role FROM users WHERE useruuid = %s", (request_user_uuid[0],))
+                request_user_role = cur.fetchone()
+                if request_user_role:
+                    if request_user_role[0] == "ADMIN":
+                        cur.execute("SELECT username, useruuid, createdat, role, lastlogin, name, email, birthdate FROM users WHERE useruuid = %s", (data.useruuid))
+                        user_info = cur.fetchone()
+                        if user_info:
+                            return{"status": "success", "username": user_info[0], "useruuid": user_info[1], "createdat": user_info[2], "role": user_info[3], "lastlogin": user_info[4], "name": user_info[5], "email": user_info[6], "birthdate": user_info[7]}
+                        else:
+                            raise HTTPException(
+                                status_code=404,
+                                detail="User not found"
+                            )
+                    else:
+                        raise HTTPException(
+                                status_code=403,
+                                detail="Access denied; required permission is missing."
+                        )
+                else:
+                   raise HTTPException(
+                        status_code=500,
+                        detail="User role is missing"
+                    ) 
             else:
                 raise HTTPException(
                     status_code=401,
