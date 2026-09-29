@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 import psycopg
 from pwdlib import PasswordHash
-from datetime import date
+from datetime import date, datetime
 
 app = FastAPI(
     root_path="/api"
@@ -58,6 +58,17 @@ class GetUserInfoRequest(BaseModel):
     useruuid: str
     requestUserName: str
     requestUserToken: str
+
+class UserInfoResponse(BaseModel):
+    status: str
+    username: str
+    useruuid: str
+    createdat: datetime  # Erkennt datetime automatisch
+    role: str
+    lastlogin: datetime | None = None  # Erlaubt 'null' aus der Datenbank
+    name: str
+    email: str
+    birthdate: date      # Erkennt date automatisch
 
 @app.post("/register",)
 def register(user: RegisterRequest):
@@ -247,7 +258,7 @@ def get_role(data: GetRoleRequest):
                 detail="User not found"
             )
 
-@app.post("/get_user_info")
+@app.post("/get_user_info", response_model=UserInfoResponse)
 def get_user_info(data: GetUserInfoRequest):
     with conn.cursor() as cur:
         cur.execute("SELECT useruuid FROM users WHERE username = %s", (data.requestUserName,))
