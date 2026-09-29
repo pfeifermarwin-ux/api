@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 import psycopg
 from pwdlib import PasswordHash
+from datetime import date
 
 app = FastAPI(
     root_path="/api"
@@ -27,7 +28,14 @@ def verify_password(password: str, hashed_password: str) -> bool:
 def home():
     return {"message": "online"}
 
-class User(BaseModel):
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    name: str
+    email: EmailStr
+    birtdate: date
+
+class LoginRequest(BaseModel):
     username: str
     password: str
 
@@ -46,25 +54,33 @@ class GetRoleRequest(BaseModel):
     username: str
     token: str
 
-@app.post("/register", status_code=201)
-def register(user: User):
+class GetUserInfoRequest(BaseModel):
+    useruuid: str
+    requestUserName: str
+    requestUserToken: str
+
+@app.post("/register",)
+def register(user: RegisterRequest):
     username = user.username
     password = user.password
+    name = user.name
+    email = user.email
+    birtdate = user.birtdate
     passwordHash = hash_password(password)
     try:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO users (username, passwordhash) VALUES (%s, %s)", (username, passwordHash))
+            cur.execute("INSERT INTO users (username, passwordhash, name, email, birthdate) VALUES (%s, %s, %s, %s, %s)", (username, passwordHash, name, email, birtdate,))
             conn.commit()
     except psycopg.errors.UniqueViolation:
         conn.rollback()
         raise HTTPException(
             status_code=409,
-            detail="Username already exists"
+            detail="Username or Email already exists"
         )
     return {"status": "success", "message": "User registered successfully."}
 
 @app.post("/login")
-def login(user: User):
+def login(user: LoginRequest):
     username = user.username
     password = user.password
     with conn.cursor() as cur:
@@ -220,6 +236,27 @@ def get_role(data: GetRoleRequest):
                         status_code=500,
                         detail="User role is missing"
                     )
+            else:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token is invalid or expired"
+                )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+
+@app.post("/get_user_info")
+def get_user_info(data: GetUserInfoRequest):
+    with conn.cursor() as cur:
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (data.requestUserName,))
+        request_user_uuid = cur.fetchone()
+        if request_user_uuid:
+            cur.execute("SELECT token FROM logins WHERE useruuid = %s and token = %s", (request_user_uuid[0], data.requestUserToken,))
+            token_info=cur.fetchone()
+            if token_info:
+                pass
             else:
                 raise HTTPException(
                     status_code=401,
