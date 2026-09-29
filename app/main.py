@@ -33,7 +33,7 @@ class RegisterRequest(BaseModel):
     password: str
     name: str
     email: EmailStr
-    birtdate: date
+    birthdate: date
 
 class LoginRequest(BaseModel):
     username: str
@@ -65,11 +65,11 @@ def register(user: RegisterRequest):
     password = user.password
     name = user.name
     email = user.email
-    birtdate = user.birtdate
+    birthdate = user.birthdate
     passwordHash = hash_password(password)
     try:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO users (username, passwordhash, name, email, birthdate) VALUES (%s, %s, %s, %s, %s)", (username, passwordHash, name, email, birtdate,))
+            cur.execute("INSERT INTO users (username, passwordhash, name, email, birthdate) VALUES (%s, %s, %s, %s, %s)", (username, passwordHash, name, email, birthdate,))
             conn.commit()
     except psycopg.errors.UniqueViolation:
         conn.rollback()
