@@ -260,7 +260,7 @@ def get_user_info(data: GetUserInfoRequest):
                 request_user_role = cur.fetchone()
                 if request_user_role:
                     if request_user_role[0] == "ADMIN":
-                        cur.execute("SELECT username, useruuid, createdat, role, lastlogin, name, email, birthdate FROM users WHERE useruuid = %s", (data.useruuid))
+                        cur.execute("SELECT username, useruuid, createdat, role, lastlogin, name, email, birthdate FROM users WHERE useruuid = %s", (data.useruuid,))
                         user_info = cur.fetchone()
                         if user_info:
                             return{"status": "success", "username": user_info[0], "useruuid": user_info[1], "createdat": user_info[2], "role": user_info[3], "lastlogin": user_info[4], "name": user_info[5], "email": user_info[6], "birthdate": user_info[7]}
