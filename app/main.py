@@ -3,6 +3,7 @@ from pydantic import BaseModel, EmailStr, Field
 import psycopg
 from pwdlib import PasswordHash
 from datetime import date, datetime
+from uuid import UUID
 
 app = FastAPI(
     root_path="/api"
@@ -62,7 +63,7 @@ class GetUserInfoRequest(BaseModel):
 class UserInfoResponse(BaseModel):
     status: str
     username: str
-    useruuid: str
+    useruuid: UUID
     createdat: datetime  # Erkennt datetime automatisch
     role: str
     lastlogin: datetime | None = None  # Erlaubt 'null' aus der Datenbank
