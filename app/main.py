@@ -64,12 +64,12 @@ class UserInfoResponse(BaseModel):
     status: str
     username: str
     useruuid: UUID
-    createdat: datetime  # Erkennt datetime automatisch
+    createdat: datetime
     role: str
-    lastlogin: datetime | None = None  # Erlaubt 'null' aus der Datenbank
+    lastlogin: datetime | None = None
     name: str
     email: str
-    birthdate: date      # Erkennt date automatisch
+    birthdate: date
 
 @app.post("/register",)
 def register(user: RegisterRequest):
