@@ -105,6 +105,7 @@ def login(user: LoginRequest):
                 if verify_password(password, stored_password_hash[0]):
                     cur.execute("INSERT INTO logins (useruuid) VALUES (%s) RETURNING token", (uuid[0],))
                     login_info = cur.fetchone()
+                    cur.execute("UPDATE users SET lastlogin = NOW() WHERE useruuid = %s",(uuid[0],))
                     conn.commit()
                     if login_info:
                         return {"status": "success", "token": login_info[0]}
