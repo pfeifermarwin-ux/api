@@ -153,7 +153,7 @@ def logout(data: LogoutRequest):
         deleted_rows = cur.rowcount
         conn.commit()
         if deleted_rows > 0:
-            log(None, "WARNING", "Logged out successfully", "/logout", 200, data.model_dump())
+            log(None, "INFO", "Logged out successfully", "/logout", 200, data.model_dump())
             return {"status": "success", "message": "Logged out successfully."}
         else:
             log(None, "WARNING", "Logout Request with Invalid token", "/logout", 401, data.model_dump())
@@ -168,6 +168,7 @@ def check_token(data: TokenCheck):
     username = data.username
     token = data.token
     if not token:
+        log(None, "WARNING", "Request without Token", "/check_token", 401, data.model_dump())
         raise HTTPException(
             status_code=401,
             detail="Token is required"
@@ -179,13 +180,16 @@ def check_token(data: TokenCheck):
             cur.execute("SELECT token FROM logins WHERE useruuid = %s AND token = %s", (user_uuid[0], token))
             token_info = cur.fetchone()
             if token_info:
+                log(None, "INFO", "Token is valid", "/check_token", 200, data.model_dump())
                 return {"status": "success", "message": "Token is valid."}
             else:
+                log(None, "WARNING", "Invalid token", "/check_token", 401, data.model_dump())
                 raise HTTPException(
                     status_code=401,
                     detail="Invalid token"
                 )
         else:
+            log(None, "WARNING", "User not found", "/check_token", 404, data.model_dump())
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
@@ -219,28 +223,34 @@ def get_users(data: GetUsersRequest):
                         ]
                         if users:
                             conn.commit()
+                            log(user_uuid[0], "INFO", "Get users success", "/get_users", 200, data.model_dump())
                             return{"status": "success", "users": users}
                         else:
+                            log(user_uuid[0], "ERROR", "Users not found", "/get_users", 500, data.model_dump())
                             raise HTTPException(
                                 status_code=500,
                                 detail="Users not found"
                             )
                     else:
+                        log(user_uuid[0], "WARNING", "Access denied; required permission is missing", "/get_users", 403, data.model_dump())
                         raise HTTPException(
                             status_code=403,
                             detail="Access denied; required permission is missing."
                         )
                 else:
+                    log(user_uuid[0], "WARNING", "User role is missing", "/get_users", 500, data.model_dump())
                     raise HTTPException(
                         status_code=500,
                         detail="User role is missing"
                     )
             else:
+                log(user_uuid[0], "WARNING", "Token is invalid or expired", "/get_users", 401, data.model_dump())
                 raise HTTPException(
                     status_code=401,
                     detail="Token is invalid or expired"
                 )
         else:
+            log(None, "WARNING", "User not found", "/get_users", 404, data.model_dump())
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
@@ -259,18 +269,22 @@ def get_role(data: GetRoleRequest):
                 cur.execute("SELECT role FROM users WHERE useruuid = %s", (user_uuid[0],))
                 role = cur.fetchone()
                 if role:
+                    log(user_uuid[0], "INFO", "Get role success", "/get_role", 200, data.model_dump())
                     return{"status": "success", "role": role[0]}
                 else:
+                    log(user_uuid[0], "WARNING", "User role is missing", "/get_role", 500, data.model_dump())
                     raise HTTPException(
                         status_code=500,
                         detail="User role is missing"
                     )
             else:
+                log(user_uuid[0], "WARNING", "Token is invalid or expired", "/get_role", 401, data.model_dump())
                 raise HTTPException(
                     status_code=401,
                     detail="Token is invalid or expired"
                 )
         else:
+            log(None, "WARNING", "User not found", "/get_role", 404, data.model_dump())
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
@@ -292,28 +306,34 @@ def get_user_info(data: GetUserInfoRequest):
                         cur.execute("SELECT username, useruuid, createdat, role, lastlogin, name, email, birthdate FROM users WHERE useruuid = %s", (data.useruuid,))
                         user_info = cur.fetchone()
                         if user_info:
+                            log(request_user_uuid[0], "INFO", "Get user_info request", "/get_user_info", 200, data.model_dump())
                             return{"status": "success", "username": user_info[0], "useruuid": user_info[1], "createdat": user_info[2], "role": user_info[3], "lastlogin": user_info[4], "name": user_info[5], "email": user_info[6], "birthdate": user_info[7]}
                         else:
+                            log(request_user_uuid[0], "WARNING", "User not found", "/get_user_info", 404, data.model_dump())
                             raise HTTPException(
                                 status_code=404,
                                 detail="User not found"
                             )
                     else:
+                        log(request_user_uuid[0], "WARNING", "Access denied; required permission is missing", "/get_user_info", 403, data.model_dump())
                         raise HTTPException(
                                 status_code=403,
                                 detail="Access denied; required permission is missing."
                         )
                 else:
+                   log(request_user_uuid[0], "ERROR", "User role is missing", "/get_user_info", 500, data.model_dump())
                    raise HTTPException(
                         status_code=500,
                         detail="User role is missing"
                     ) 
             else:
+                log(request_user_uuid[0], "WARNING", "Token is invalid or expired", "/get_user_info", 401, data.model_dump())
                 raise HTTPException(
                     status_code=401,
                     detail="Token is invalid or expired"
                 )
         else:
+            log(None, "WARNING", "User not found", "/get_user_info", 404, data.model_dump())
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
