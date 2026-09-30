@@ -77,6 +77,11 @@ class UserInfoResponse(BaseModel):
     email: str
     birthdate: date
 
+class BlockUserRequest(BaseModel):
+    useruuidToBlock: UUID
+    token: UUID
+    username: str
+
 @app.post("/register",)
 def register(user: RegisterRequest):
     username = user.username
@@ -334,6 +339,63 @@ def get_user_info(data: GetUserInfoRequest):
                 )
         else:
             log(None, "WARNING", "User not found", "/get_user_info", 404, data.model_dump())
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+
+@app.post("/block_user")
+def block_user(data: BlockUserRequest):
+    usertoblock = data.useruuidToBlock
+    token = data.token
+    username = data.username
+    if not token:
+        log(None, "WARNING", "Request without token", "/block_user", 401, data.model_dump())
+        raise HTTPException(
+            status_code=401,
+            detail="Token is required"
+        )
+    if not username:
+            log(None, "WARNING", "Request without username", "/block_user", 401, data.model_dump())
+            raise HTTPException(
+                status_code=401,
+                detail="Username is required"
+            )
+    with conn.cursor() as cur:
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
+        useruuid = cur.fetchone()
+        if useruuid:
+            cur.execute("SELECT token FROM logins WHERE token = %s AND useruuid = %s", (token,useruuid,))
+            tokenInfo = cur.fetchone()
+            if tokenInfo:
+                cur.execute("SELECT role FROM users WHERE useruuid = %s", (useruuid,))
+                role = cur.fetchone()
+                if role:
+                    if role[0] == 'ADMIN':
+                        cur.execute("UPDATE users SET isblocked = true WHERE useruuid = %s",(usertoblock,))
+                        conn.commit()
+                        log(useruuid[0], "INFO", "Block user success", "/block_user", 200, data.model_dump())
+                        return{"status": "success", "message": "user successfully blocked"}
+                    else:
+                        log(useruuid[0], "WARNING", "Access denied; required permission is missing", "/block_user", 403, data.model_dump())
+                        raise HTTPException(
+                                status_code=403,
+                                detail="Access denied; required permission is missing."
+                        )
+                else:
+                    log(useruuid[0], "ERROR", "User role is missing", "/block_user", 500, data.model_dump())
+                    raise HTTPException(
+                        status_code=500,
+                        detail="User role is missing"
+                    )
+            else:
+                log(useruuid[0], "WARNING", "Token is invalid or expired", "/block_user", 401, data.model_dump())
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token is invalid or expired"
+                )
+        else:
+            log(None, "WARNING", "User not found", "/block_user", 404, data.model_dump())
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
