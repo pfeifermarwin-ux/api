@@ -25,6 +25,11 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed_password: str) -> bool:
     return password_hash.verify(password, hashed_password)
 
+def log(useruuid, level, message, path, status_code, metadata):
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO logs (useruuid, level, message, path, status_code, metadata) VALUES (%s, %s, %s, %s, %s, %s)", (useruuid, level, message, path, status_code, metadata,))
+        conn.commit()
+
 @app.get("/")
 def home():
     return {"message": "online"}
@@ -85,10 +90,12 @@ def register(user: RegisterRequest):
             conn.commit()
     except psycopg.errors.UniqueViolation:
         conn.rollback()
+        log(None, "WARNING", "Username or Email already exists", "/register", 409, user.model_dump(exclude={"password"}))
         raise HTTPException(
             status_code=409,
             detail="Username or Email already exists"
         )
+    log(None, "INFO", "User registered successfully", "/register", 200, user.model_dump(exclude={"password"}))
     return {"status": "success", "message": "User registered successfully."}
 
 @app.post("/login")
@@ -108,19 +115,23 @@ def login(user: LoginRequest):
                     cur.execute("UPDATE users SET lastlogin = NOW() WHERE useruuid = %s",(uuid[0],))
                     conn.commit()
                     if login_info:
+                        log(uuid, "INFO", "User Login successfull", "/login", 200, user.model_dump(exclude={"password"}))
                         return {"status": "success", "token": login_info[0]}
                     else:
+                        log(uuid, "ERROR", "Failed to create login session", "/login", 401, user.model_dump(exclude={"password"}))
                         conn.rollback()
                         raise HTTPException(
                             status_code=500,
                             detail="Failed to create login session"
                         )
                 else:
+                    log(uuid, "WARNING", "Incorrect password", "/login", 401, user.model_dump(exclude={"password"}))
                     raise HTTPException(
                         status_code=401,
                         detail="Incorrect password"
                     )
         else:
+            log(None, "WARNING", "User not found", "/login", 404, user.model_dump(exclude={"password"}))
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
@@ -131,6 +142,7 @@ def login(user: LoginRequest):
 def logout(data: LogoutRequest):
     token = data.token
     if not token:
+        log(None, "WARNING", "Logout Request without Token", "/logout", 401, data)
         raise HTTPException(
             status_code=401,
             detail="Token is required"
@@ -140,8 +152,10 @@ def logout(data: LogoutRequest):
         deleted_rows = cur.rowcount
         conn.commit()
         if deleted_rows > 0:
+            log(None, "WARNING", "Logged out successfully", "/logout", 200, data)
             return {"status": "success", "message": "Logged out successfully."}
         else:
+            log(None, "WARNING", "Logout Request with Invalid token", "/logout", 401, data)
             raise HTTPException(
                 status_code=401,
                 detail="Invalid token"
