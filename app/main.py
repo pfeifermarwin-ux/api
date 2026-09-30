@@ -374,28 +374,28 @@ def block_user(data: BlockUserRequest):
                     if role[0] == 'ADMIN':
                         cur.execute("UPDATE users SET isblocked = true WHERE useruuid = %s",(usertoblock,))
                         conn.commit()
-                        log(useruuid[0], "INFO", "Block user success", "/block_user", 200, data.model_dump())
+                        log(useruuid[0], "INFO", "Block user success", "/block_user", 200, data.model_dump(mode="json"))
                         return{"status": "success", "message": "user successfully blocked"}
                     else:
-                        log(useruuid[0], "WARNING", "Access denied; required permission is missing", "/block_user", 403, data.model_dump())
+                        log(useruuid[0], "WARNING", "Access denied; required permission is missing", "/block_user", 403, data.model_dump(mode="json"))
                         raise HTTPException(
                                 status_code=403,
                                 detail="Access denied; required permission is missing."
                         )
                 else:
-                    log(useruuid[0], "ERROR", "User role is missing", "/block_user", 500, data.model_dump())
+                    log(useruuid[0], "ERROR", "User role is missing", "/block_user", 500, data.model_dump(mode="json"))
                     raise HTTPException(
                         status_code=500,
                         detail="User role is missing"
                     )
             else:
-                log(useruuid[0], "WARNING", "Token is invalid or expired", "/block_user", 401, data.model_dump())
+                log(useruuid[0], "WARNING", "Token is invalid or expired", "/block_user", 401, data.model_dump(mode="json"))
                 raise HTTPException(
                     status_code=401,
                     detail="Token is invalid or expired"
                 )
         else:
-            log(None, "WARNING", "User not found", "/block_user", 404, data.model_dump())
+            log(None, "WARNING", "User not found", "/block_user", 404, data.model_dump(mode="json"))
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
