@@ -365,10 +365,10 @@ def block_user(data: BlockUserRequest):
         cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
         useruuid = cur.fetchone()
         if useruuid:
-            cur.execute("SELECT token FROM logins WHERE token = %s AND useruuid = %s", (token,useruuid,))
+            cur.execute("SELECT token FROM logins WHERE token = %s AND useruuid = %s", (token,useruuid[0],))
             tokenInfo = cur.fetchone()
             if tokenInfo:
-                cur.execute("SELECT role FROM users WHERE useruuid = %s", (useruuid,))
+                cur.execute("SELECT role FROM users WHERE useruuid = %s", (useruuid[0],))
                 role = cur.fetchone()
                 if role:
                     if role[0] == 'ADMIN':
