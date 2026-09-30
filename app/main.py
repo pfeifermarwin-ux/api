@@ -4,6 +4,7 @@ import psycopg
 from pwdlib import PasswordHash
 from datetime import date, datetime
 from uuid import UUID
+from psycopg.types.json import Jsonb
 
 app = FastAPI(
     root_path="/api"
@@ -27,7 +28,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
 
 def log(useruuid, level, message, path, status_code, metadata):
     with conn.cursor() as cur:
-        cur.execute("INSERT INTO logs (useruuid, level, message, path, status_code, metadata) VALUES (%s, %s, %s, %s, %s, %s)", (useruuid, level, message, path, status_code, metadata,))
+        cur.execute("INSERT INTO logs (useruuid, level, message, path, status_code, metadata) VALUES (%s, %s, %s, %s, %s, %s)", (useruuid, level, message, path, status_code, Jsonb(metadata) if metadata is not None else None))
         conn.commit()
 
 @app.get("/")
