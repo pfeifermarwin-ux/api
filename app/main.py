@@ -116,17 +116,17 @@ def login(user: LoginRequest):
                     cur.execute("UPDATE users SET lastlogin = NOW() WHERE useruuid = %s",(uuid[0],))
                     conn.commit()
                     if login_info:
-                        log(uuid, "INFO", "User Login successfull", "/login", 200, user.model_dump(exclude={"password"}))
+                        log(uuid[0], "INFO", "User Login successfull", "/login", 200, user.model_dump(exclude={"password"}))
                         return {"status": "success", "token": login_info[0]}
                     else:
-                        log(uuid, "ERROR", "Failed to create login session", "/login", 401, user.model_dump(exclude={"password"}))
+                        log(uuid[0], "ERROR", "Failed to create login session", "/login", 401, user.model_dump(exclude={"password"}))
                         conn.rollback()
                         raise HTTPException(
                             status_code=500,
                             detail="Failed to create login session"
                         )
                 else:
-                    log(uuid, "WARNING", "Incorrect password", "/login", 401, user.model_dump(exclude={"password"}))
+                    log(uuid[0], "WARNING", "Incorrect password", "/login", 401, user.model_dump(exclude={"password"}))
                     raise HTTPException(
                         status_code=401,
                         detail="Incorrect password"
