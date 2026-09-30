@@ -142,7 +142,7 @@ def login(user: LoginRequest):
 def logout(data: LogoutRequest):
     token = data.token
     if not token:
-        log(None, "WARNING", "Logout Request without Token", "/logout", 401, data)
+        log(None, "WARNING", "Logout Request without Token", "/logout", 401, data.model_dump())
         raise HTTPException(
             status_code=401,
             detail="Token is required"
@@ -152,10 +152,10 @@ def logout(data: LogoutRequest):
         deleted_rows = cur.rowcount
         conn.commit()
         if deleted_rows > 0:
-            log(None, "WARNING", "Logged out successfully", "/logout", 200, data)
+            log(None, "WARNING", "Logged out successfully", "/logout", 200, data.model_dump())
             return {"status": "success", "message": "Logged out successfully."}
         else:
-            log(None, "WARNING", "Logout Request with Invalid token", "/logout", 401, data)
+            log(None, "WARNING", "Logout Request with Invalid token", "/logout", 401, data.model_dump())
             raise HTTPException(
                 status_code=401,
                 detail="Invalid token"
