@@ -126,7 +126,7 @@ def login(user: LoginRequest):
             stored_password_hash = cur.fetchone()
             if stored_password_hash:
                 if verify_password(password, stored_password_hash[0]):
-                    cur.execute("SELECT isblocked FROM users WHERE useuuid = %s", (uuid[0],))
+                    cur.execute("SELECT isblocked FROM users WHERE useruuid = %s", (uuid[0],))
                     blockstatus = cur.fetchone()
                     if blockstatus == False:
                         cur.execute("INSERT INTO logins (useruuid) VALUES (%s) RETURNING token", (uuid[0],))
