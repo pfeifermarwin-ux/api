@@ -128,7 +128,7 @@ def login(user: LoginRequest):
                 if verify_password(password, stored_password_hash[0]):
                     cur.execute("SELECT isblocked FROM users WHERE useruuid = %s", (uuid[0],))
                     blockstatus = cur.fetchone()
-                    if blockstatus == False:
+                    if blockstatus == "false":
                         cur.execute("INSERT INTO logins (useruuid) VALUES (%s) RETURNING token", (uuid[0],))
                         login_info = cur.fetchone()
                         cur.execute("UPDATE users SET lastlogin = NOW() WHERE useruuid = %s",(uuid[0],))
