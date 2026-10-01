@@ -83,7 +83,12 @@ class BlockUserRequest(BaseModel):
     username: str
 
 class UnblockUserRequest(BaseModel):
-    useruuidToBlock: UUID
+    useruuidToUnblock: UUID
+    token: UUID
+    username: str
+
+class GetUserLogsRequest(BaseModel):
+    useruuidforlog: UUID
     token: UUID
     username: str
 
@@ -408,7 +413,7 @@ def block_user(data: BlockUserRequest):
 
 @app.post("/unblock_user")
 def unblock_user(data: UnblockUserRequest):
-    usertounblock = data.useruuidToBlock
+    usertounblock = data.useruuidToUnblock
     token = data.token
     username = data.username
     if not token:
@@ -437,7 +442,7 @@ def unblock_user(data: UnblockUserRequest):
                         cur.execute("UPDATE users SET isblocked = false WHERE useruuid = %s",(usertounblock,))
                         conn.commit()
                         log(useruuid[0], "INFO", "Unblock user success", "/unblock_user", 200, data.model_dump(mode="json"))
-                        return{"status": "success", "message": "user successfully blocked"}
+                        return{"status": "success", "message": "user successfully Unblocked"}
                     else:
                         log(useruuid[0], "WARNING", "Access denied; required permission is missing", "/block_user", 403, data.model_dump(mode="json"))
                         raise HTTPException(
@@ -458,6 +463,78 @@ def unblock_user(data: UnblockUserRequest):
                 )
         else:
             log(None, "WARNING", "User not found", "/unblock_user", 404, data.model_dump(mode="json"))
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+
+@app.post("/getUserLogs")#
+def getUserLogs(data: GetUserLogsRequest):
+    useruuidforlog = data.useruuidforlog
+    token = data.token
+    username = data.username
+    if not token:
+            log(None, "WARNING", "Request without token", "/getUserLogs", 401, data.model_dump())
+            raise HTTPException(
+                status_code=401,
+                detail="Token is required"
+            )
+    if not username:
+            log(None, "WARNING", "Request without username", "/getUserLogs", 401, data.model_dump())
+            raise HTTPException(
+                status_code=401,
+                detail="Username is required"
+            )
+    with conn.cursor() as cur:
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
+        useruuid = cur.fetchone()
+        if useruuid:
+            cur.execute("SELECT token FROM logins WHERE token = %s AND useruuid = %s", (token,useruuid[0],))
+            tokenInfo = cur.fetchone()
+            if tokenInfo:
+                cur.execute("SELECT role FROM users WHERE useruuid = %s", (useruuid[0],))
+                role = cur.fetchone()
+                if role:
+                    if role[0] == 'ADMIN':
+                        cur.execute("SELECT * FROM logs WHERE useruuid = %s", (useruuidforlog,))
+                        logs = [
+                            {
+                                "loguuid": row[1],
+                                "level": row[2],
+                                "message": row[3],
+                                "created_at": row[4],
+                                "path": row[5],
+                                "status_code": row[6],
+                                "metadata": row[7]
+                            }
+                            for row in cur.fetchall()
+                        ]
+                        if logs:
+                            conn.commit()
+                            log(useruuid[0], "INFO", "Get Log success", "/getUserLogs", 200, data.model_dump(mode="json"))
+                            return{"status": "success", "logs": logs}
+                        else:
+                            pass
+                    else:
+                        log(useruuid[0], "WARNING", "Access denied; required permission is missing", "/getUserLogs", 403, data.model_dump(mode="json"))
+                        raise HTTPException(
+                                status_code=403,
+                                detail="Access denied; required permission is missing."
+                        )
+                else:
+                    log(useruuid[0], "ERROR", "User role is missing", "/getUserLogs", 500, data.model_dump(mode="json"))
+                    raise HTTPException(
+                        status_code=500,
+                        detail="User role is missing"
+                    )
+            else:
+                log(useruuid[0], "WARNING", "Token is invalid or expired", "/getUserLogs", 401, data.model_dump(mode="json"))
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token is invalid or expired"
+                ) 
+        else:
+            log(None, "WARNING", "User not found", "/getUserLogs", 404, data.model_dump(mode="json"))
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
