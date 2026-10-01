@@ -327,11 +327,11 @@ def get_user_info(data: GetUserInfoRequest):
                 request_user_role = cur.fetchone()
                 if request_user_role:
                     if request_user_role[0] == "ADMIN":
-                        cur.execute("SELECT username, useruuid, createdat, role, lastlogin, name, email, birthdate FROM users WHERE useruuid = %s", (data.useruuid,))
+                        cur.execute("SELECT username, useruuid, createdat, role, lastlogin, name, email, birthdate, isblocked FROM users WHERE useruuid = %s", (data.useruuid,))
                         user_info = cur.fetchone()
                         if user_info:
                             log(request_user_uuid[0], "INFO", "Get user_info request", "/get_user_info", 200, data.model_dump())
-                            return{"status": "success", "username": user_info[0], "useruuid": user_info[1], "createdat": user_info[2], "role": user_info[3], "lastlogin": user_info[4], "name": user_info[5], "email": user_info[6], "birthdate": user_info[7]}
+                            return{"status": "success", "username": user_info[0], "useruuid": user_info[1], "createdat": user_info[2], "role": user_info[3], "lastlogin": user_info[4], "name": user_info[5], "email": user_info[6], "birthdate": user_info[7], "isblocked": user_info[8]}
                         else:
                             log(request_user_uuid[0], "WARNING", "User not found", "/get_user_info", 404, data.model_dump())
                             raise HTTPException(
