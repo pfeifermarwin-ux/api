@@ -92,6 +92,11 @@ class GetUserLogsRequest(BaseModel):
     token: UUID
     username: str
 
+class GetLogByLoguuidRequest(BaseModel):
+    loguuid: UUID
+    token: UUID
+    username: str
+
 @app.post("/register",)
 def register(user: RegisterRequest):
     username = user.username
@@ -551,6 +556,49 @@ def getUserLogs(data: GetUserLogsRequest):
                 ) 
         else:
             log(None, "WARNING", "User not found", "/getUserLogs", 404, data.model_dump(mode="json"))
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+
+@app.post("/get_log_by_loguuid")
+def get_log_by_loguuid(data: GetLogByLoguuidRequest):
+    loguuid = data.loguuid
+    username = data.username
+    token = data.token
+    if not token:
+            log(None, "WARNING", "Request without token", "/get_log_by_loguuid", 401, data.model_dump())
+            raise HTTPException(
+                status_code=401,
+                detail="Token is required"
+            )
+    if not username:
+            log(None, "WARNING", "Request without username", "/get_log_by_loguuid", 401, data.model_dump())
+            raise HTTPException(
+                status_code=401,
+                detail="Username is required"
+            )
+    with conn.cursor() as cur:
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
+        useruuid = cur.fetchone()
+        if useruuid:
+            cur.execute("SELECT token FROM logins WHERE token = %s AND useruuid = %s", (token,useruuid[0],))
+            tokenInfo = cur.fetchone()
+            if tokenInfo:
+                cur.execute("SELECT role FROM users WHERE useruuid = %s", (useruuid[0],))
+                role = cur.fetchone()
+                if role:
+                    pass
+                else:
+                    
+            else:
+                log(useruuid[0], "WARNING", "Token is invalid or expired", "/get_log_by_loguuid", 401, data.model_dump())
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token is invalid or expired"
+                )
+        else:
+            log(None, "WARNING", "User not found", "/get_log_by_loguuid", 404, data.model_dump())
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
