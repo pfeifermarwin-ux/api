@@ -76,6 +76,7 @@ class UserInfoResponse(BaseModel):
     name: str
     email: str
     birthdate: date
+    isblocked: bool
 
 class BlockUserRequest(BaseModel):
     useruuidToBlock: UUID
