@@ -588,8 +588,41 @@ def get_log_by_loguuid(data: GetLogByLoguuidRequest):
                 cur.execute("SELECT role FROM users WHERE useruuid = %s", (useruuid[0],))
                 role = cur.fetchone()
                 if role:
-                    pass
+                    if role[0] == 'ADMIN':
+                        cur.execute("SELECT * FROM logs WHERE loguuid = %s", (loguuid,))
+                        log_entry = cur.fetchone()
+                        if log_entry:
+                            log(useruuid[0], "INFO", "Get Log by loguuid success", "/get_log_by_loguuid", 200, data.model_dump())
+                            return {
+                                "status": "success",
+                                "log": {
+                                    "loguuid": log_entry[1],
+                                    "level": log_entry[2],
+                                    "message": log_entry[3],
+                                    "created_at": log_entry[4],
+                                    "path": log_entry[5],
+                                    "status_code": log_entry[6],
+                                    "metadata": log_entry[7]
+                                }
+                            }
+                        else:
+                            log(useruuid[0], "WARNING", "Log entry not found", "/get_log_by_loguuid", 404, data.model_dump())
+                            raise HTTPException(
+                                status_code=404,
+                                detail="Log entry not found"
+                            )
+                    else:
+                        log(useruuid[0], "WARNING", "Access denied; required permission is missing", "/get_log_by_loguuid", 403, data.model_dump())
+                        raise HTTPException(
+                                status_code=403,
+                                detail="Access denied; required permission is missing."
+                        )
                 else:
+                    log(useruuid[0], "ERROR", "User role is missing", "/get_log_by_loguuid", 500, data.model_dump())
+                    raise HTTPException(
+                        status_code=500,
+                        detail="User role is missing"
+                    )
                     
             else:
                 log(useruuid[0], "WARNING", "Token is invalid or expired", "/get_log_by_loguuid", 401, data.model_dump())
