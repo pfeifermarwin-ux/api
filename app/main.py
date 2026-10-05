@@ -592,7 +592,7 @@ def get_log_by_loguuid(data: GetLogByLoguuidRequest):
                         cur.execute("SELECT * FROM logs WHERE loguuid = %s", (loguuid,))
                         log_entry = cur.fetchone()
                         if log_entry:
-                            log(useruuid[0], "INFO", "Get Log by loguuid success", "/get_log_by_loguuid", 200, data.model_dump())
+                            log(useruuid[0], "INFO", "Get Log by loguuid success", "/get_log_by_loguuid", 200, data.model_dump(mode="json"))
                             return {
                                 "status": "success",
                                 "log": {
