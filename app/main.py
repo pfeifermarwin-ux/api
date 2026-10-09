@@ -98,6 +98,13 @@ class GetLogByLoguuidRequest(BaseModel):
     token: UUID
     username: str
 
+class ChangePasswordRequest(BaseModel):
+    username: str
+    token: str
+    old_password: str | None = None
+    new_password: str
+    userToChange: str | None = None 
+
 @app.post("/register",)
 def register(user: RegisterRequest):
     username = user.username
@@ -637,3 +644,121 @@ def get_log_by_loguuid(data: GetLogByLoguuidRequest):
                 status_code=404,
                 detail="User not found"
             )
+
+@app.post("/change_password")
+def change_password(data: ChangePasswordRequest):
+    username = data.username
+    token = data.token
+    old_password = data.old_password
+    new_password = data.new_password
+    user_to_change = data.userToChange if data.userToChange else None
+
+    if not token:
+        log(None, "WARNING", "Request without token", "/change_password", 401, data.model_dump())
+        raise HTTPException(
+            status_code=401,
+            detail="Token is required"
+        )
+    if not username:
+        log(None, "WARNING", "Request without username", "/change_password", 401, data.model_dump())
+        raise HTTPException(
+            status_code=401,
+            detail="Username is required"
+        )
+
+    if user_to_change:
+        with conn.cursor() as cur:
+            cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
+            useruuid = cur.fetchone()
+            if useruuid:
+                cur.execute("SELECT token FROM logins WHERE token = %s AND useruuid = %s", (token, useruuid[0],))
+                tokenInfo = cur.fetchone()
+                if tokenInfo:
+                    cur.execute("SELECT role FROM users WHERE useruuid = %s", (useruuid[0],))
+                    role = cur.fetchone()
+                    if role:
+                        if role[0] == "ADMIN":
+                            new_password_hash = hash_password(new_password)
+                            cur.execute("UPDATE users SET passwordhash = %s WHERE username = %s", (new_password_hash, user_to_change,))
+                            cur.execute("DELETE FROM logins WHERE useruuid = (SELECT useruuid FROM users WHERE username = %s)", (user_to_change,))
+                            conn.commit()
+                            log(useruuid[0], "INFO", "Password changed successfully for user: " + user_to_change, "/change_password", 200, data.model_dump())
+                            return {"status": "success", "message": f"Password changed successfully for user: {user_to_change}. Please log in again."}
+                        else:
+                            log(useruuid[0], "WARNING", "Access denied; required permission is missing", "/change_password", 403, data.model_dump())
+                            raise HTTPException(
+                                status_code=403,
+                                detail="Access denied; required permission is missing."
+                            )
+                    else:
+                        log(useruuid[0], "ERROR", "User role is missing", "/change_password", 500, data.model_dump())
+                        raise HTTPException(
+                            status_code=500,
+                            detail="User role is missing"
+                        )
+                else:
+                    log(useruuid[0], "WARNING", "Token is invalid or expired", "/change_password", 401, data.model_dump())
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Token is invalid or expired"
+                    )
+            else:
+                log(None, "WARNING", "User not found", "/change_password", 404, data.model_dump())
+                raise HTTPException(
+                    status_code=404,
+                    detail="User not found"
+                )
+    else:
+        if not old_password:
+            log(None, "WARNING", "Request without old password", "/change_password", 401, data.model_dump())
+            raise HTTPException(
+                status_code=401,
+                detail="Old password is required"
+            )
+        if not new_password:
+            log(None, "WARNING", "Request without new password", "/change_password", 401, data.model_dump())
+            raise HTTPException(
+                status_code=401,
+                detail="New password is required"
+            )
+        with conn.cursor() as cur:
+            cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
+            useruuid = cur.fetchone()
+            if useruuid:
+                cur.execute("SELECT token FROM logins WHERE token = %s AND useruuid = %s", (token, useruuid[0],))
+                tokenInfo = cur.fetchone()
+                if tokenInfo:
+                    cur.execute("SELECT passwordhash FROM users WHERE useruuid = %s", (useruuid[0],))
+                    stored_password_hash = cur.fetchone()
+                    if stored_password_hash:
+                        if verify_password(old_password, stored_password_hash[0]):
+                            new_password_hash = hash_password(new_password)
+                            cur.execute("UPDATE users SET passwordhash = %s WHERE useruuid = %s", (new_password_hash, useruuid[0],))
+                            cur.execute("DELETE FROM logins WHERE useruuid = %s", (useruuid[0],))
+                            conn.commit()
+                            log(useruuid[0], "INFO", "Password changed successfully", "/change_password", 200, data.model_dump())
+                            return {"status": "success", "message": "Password changed successfully. Please log in again."}
+                        else:
+                            log(useruuid[0], "WARNING", "Old password is incorrect", "/change_password", 401, data.model_dump())
+                            raise HTTPException(
+                                status_code=401,
+                                detail="Old password is incorrect"
+                            )
+                    else:
+                        log(useruuid[0], "ERROR", "Stored password hash not found", "/change_password", 500, data.model_dump())
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Stored password hash not found"
+                        )
+                else:
+                    log(useruuid[0], "WARNING", "Token is invalid or expired", "/change_password", 401, data.model_dump())
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Token is invalid or expired"
+                    )
+            else:
+                log(None, "WARNING", "User not found", "/change_password", 404, data.model_dump())
+                raise HTTPException(
+                    status_code=404,
+                    detail="User not found"
+                )
