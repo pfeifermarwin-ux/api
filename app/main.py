@@ -412,6 +412,7 @@ def block_user(data: BlockUserRequest):
                 if role:
                     if role[0] == 'ADMIN':
                         cur.execute("UPDATE users SET isblocked = true WHERE useruuid = %s",(usertoblock,))
+                        cur.execute("DELETE FROM logins WHERE useruuid = %s", (usertoblock,))
                         conn.commit()
                         log(useruuid[0], "INFO", "Block user success", "/block_user", 200, data.model_dump(mode="json"))
                         return{"status": "success", "message": "user successfully blocked"}
