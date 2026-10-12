@@ -799,7 +799,7 @@ def add_new_web_app(data: AddNewWebAppRequest):
             detail="Username is required"
         )
     with conn.cursor() as cur:
-        cur.execute("SELECT useruuid FROM users WHERE username = %s", (username))
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
         useruuid = cur.fetchone()
         if useruuid:
             cur.execute("SELECT token FROM logins WHERE token = %s AND useruuid = %s", (token, useruuid[0],))
