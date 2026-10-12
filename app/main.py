@@ -809,7 +809,7 @@ def add_new_web_app(data: AddNewWebAppRequest):
                 role = cur.fetchone()
                 if role:
                     if role[0] == "ADMIN":
-                        cur.execute("INSERT INTO webapps (app_name, github_url, site_url, version, release_stage, description, icon_url) VALUES (%s, %s, %s, %s, %s, %s, %s)")
+                        cur.execute("INSERT INTO webapps (app_name, github_url, site_url, version, release_stage, description, icon_url) VALUES (%s, %s, %s, %s, %s, %s, %s)", (app_name,github_url,site_url,version,release_stage,description,icon_url,))
                         conn.commit()
                         log(useruuid[0], "INFO", "Web App added successfully", "/add_new_web_app", 200, data.model_dump())
                         return {"status": "success", "message": "Web App created"}
