@@ -105,6 +105,17 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
     userToChange: str | None = None 
 
+class AddNewWebAppRequest(BaseModel):
+    app_name: str
+    github_url: str | None = None 
+    site_url: str
+    version: str
+    release_stage: str
+    description: str | None = None
+    icon_url: str | None = None
+    username: str
+    token: str
+
 @app.post("/register",)
 def register(user: RegisterRequest):
     username = user.username
@@ -763,3 +774,66 @@ def change_password(data: ChangePasswordRequest):
                     status_code=404,
                     detail="User not found"
                 )
+
+@app.post("/add_new_web_app")
+def add_new_web_app(data: AddNewWebAppRequest):
+    app_name = data.app_name
+    github_url = data.github_url
+    site_url = data.site_url
+    version = data.version
+    release_stage = data.release_stage
+    description = data.description
+    icon_url = data.icon_url
+    username = data.username
+    token = data.token
+    if not token:
+            log(None, "WARNING", "Request without token", "/add_new_web_app", 401, data.model_dump())
+            raise HTTPException(
+                status_code=401,
+                detail="Token is required"
+            )
+    if not username:
+        log(None, "WARNING", "Request without username", "/add_new_web_app", 401, data.model_dump())
+        raise HTTPException(
+            status_code=401,
+            detail="Username is required"
+        )
+    with conn.cursor() as cur:
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (username))
+        useruuid = cur.fetchone()
+        if useruuid:
+            cur.execute("SELECT token FROM logins WHERE token = %s AND useruuid = %s", (token, useruuid[0],))
+            token_info = cur.fetchone()
+            if token_info:
+                cur.execute("SELECT role FROM users WHERE useruuid = %s",(useruuid[0],))
+                role = cur.fetchone()
+                if role:
+                    if role[0] == "ADMIN":
+                        cur.execute("INSERT INTO webapps (app_name, github_url, site_url, version, release_stage, description, icon_url) VALUES (%s, %s, %s, %s, %s, %s, %s)")
+                        conn.commit()
+                        log(useruuid[0], "INFO", "Web App added successfully", "/add_new_web_app", 200, data.model_dump())
+                        return {"status": "success", "message": "Web App created"}
+                    else:
+                        log(useruuid[0], "WARNING", "Access denied; required permission is missing", "/add_new_web_app", 403, data.model_dump())
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Access denied; required permission is missing."
+                        )
+                else:
+                    log(useruuid[0], "ERROR", "User role is missing", "/add_new_web_app", 500, data.model_dump())
+                    raise HTTPException(
+                        status_code=500,
+                        detail="User role is missing"
+                    )
+            else:
+                log(useruuid[0], "WARNING", "Token is invalid or expired", "/add_new_web_app", 401, data.model_dump())
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token is invalid or expired"
+                )
+        else:
+            log(None, "WARNING", "User not found", "/add_new_web_app", 404, data.model_dump())
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )        
