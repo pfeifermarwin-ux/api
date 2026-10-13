@@ -116,6 +116,10 @@ class AddNewWebAppRequest(BaseModel):
     username: str
     token: str
 
+class GetWebAppsRequest(BaseModel):
+    username: str
+    token: str
+
 @app.post("/register",)
 def register(user: RegisterRequest):
     username = user.username
@@ -836,4 +840,58 @@ def add_new_web_app(data: AddNewWebAppRequest):
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
-            )        
+            )
+
+@app.post("/get_web_apps")
+def get_web_apps(data: GetWebAppsRequest):
+    username = data.username
+    token = data.token
+    if not token:
+        log(None, "WARNING", "Request without token", "/get_web_apps", 401, data.model_dump())
+        raise HTTPException(
+            status_code=401,
+            detail="Token is required"
+        )
+    if not username:
+        log(None, "WARNING", "Request without username", "/get_web_apps", 401, data.model_dump())
+        raise HTTPException(
+            status_code=401,
+            detail="Username is required"
+        )
+    with conn.cursor() as cur:
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
+        useruuid = cur.fetchone()
+        if useruuid:
+            cur.execute("SELECT token FROM logins WHERE token = %s AND useruuid = %s", (token, useruuid[0],))
+            token_info = cur.fetchone()
+            if token_info:
+                cur.execute("SELECT * FROM webapps")
+                webApps = [
+                    {
+                        "app_uuid": row[0],
+                        "app_name": row[1],
+                        "github_url": row[2],
+                        "site_url": row[3],
+                        "created_at": row[4],
+                        "version": row[5],
+                        "release_stage": row[6],
+                        "description": row[7],
+                        "icon_url":row[8],
+                        "updated_at": row[9]
+                    }
+                    for row in cur.fetchall()
+                ]
+                log(useruuid[0], "INFO", "Get Web Apps success", "/get_web_apps", 200, data.model_dump())
+                return{"status": "success", "web_apps": webApps}
+            else:
+                log(useruuid[0], "WARNING", "Token is invalid or expired", "/get_web_apps", 401, data.model_dump())
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token is invalid or expired"
+                )
+        else:
+            log(None, "WARNING", "User not found", "/get_web_apps", 404, data.model_dump())
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
