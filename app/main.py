@@ -1,13 +1,28 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form
 from pydantic import BaseModel, EmailStr, Field
 import psycopg
 from pwdlib import PasswordHash
 from datetime import date, datetime
 from uuid import UUID
 from psycopg.types.json import Jsonb
+from minio import Minio
+from minio.error import S3Error
+from pathlib import Path
+from io import BytesIO
 
 app = FastAPI(
     root_path="/api"
+)
+
+MINIO_ENDPOINT="100.125.8.79:9000"
+MINIO_ACCESS_KEY="wzbIDEWKdYAHc1ONNrfE"
+MINIO_SECRET_KEY="1rqwz3DIkooK5aFK7L9sLtZMYYcTjJvpccNXWAwF"
+
+client = Minio(
+    MINIO_ENDPOINT,
+    access_key=MINIO_ACCESS_KEY,
+    secret_key=MINIO_SECRET_KEY,
+    secure=True,
 )
 
 password_hash = PasswordHash.recommended()
@@ -891,6 +906,100 @@ def get_web_apps(data: GetWebAppsRequest):
                 )
         else:
             log(None, "WARNING", "User not found", "/get_web_apps", 404, data.model_dump())
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+
+@app.post("/uploadWebAppIcon")
+async def upload_web_app_icon(username: str = Form(...), token: UUID = Form(...), file: UploadFile = File(...)):
+    with conn.cursor() as cur:
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
+        useruuid = cur.fetchone()
+        if useruuid:
+            cur.execute("SELECT token FROM logins WHERE useruuid = %s AND token = %s", (useruuid[0],token,))
+            token_info = cur.fetchone()
+            if token_info:
+                cur.execute("SELECT role FROM users WHERE username = %s", (username,))
+                role = cur.fetchone()
+                if role:
+                    if role[0] == 'ADMIN':
+                        object_name = None
+                        bucket = "web-apps-icons"
+                        try:
+                            cur.execute("INSERT INTO webappsicons (uploader_uuid) VALUES (%s) RETURNING icon_uuid", (useruuid[0],))
+                            icon_uuid = cur.fetchone()
+                            if icon_uuid:
+                                icon_uuid = icon_uuid[0]
+                                object_name = str(icon_uuid)
+                                content = await file.read()
+                                client.put_object(
+                                    bucket,
+                                    object_name,
+                                    BytesIO(content),
+                                    length=len(content),
+                                    content_type=file.content_type or "application/octet-stream",
+                                )
+                                conn.commit()
+                                return {
+                                    "success": True,
+                                    "icon_uuid": object_name,
+                                }
+                            else:
+                                log(useruuid[0], "ERROR", "Icon uuid is missing", "/uploadWebAppIcon", 500, "")
+                                raise HTTPException(
+                                    status_code=500,
+                                    detail="Icon uuid is missing"
+                                )
+                        except HTTPException:
+                            conn.rollback()
+                            raise
+                        except S3Error:
+                            conn.rollback()
+                            if object_name is not None:
+                                try:
+                                    client.remove_object(bucket, object_name)
+                                except S3Error:
+                                    pass
+                            log(
+                                useruuid[0],
+                                "ERROR",
+                                "Upload to Silo failed",
+                                "/uploadWebAppIcon",
+                                502,
+                                "",
+                            )
+                            raise HTTPException(502, "Upload to Silo failed")
+                        except Exception:
+                            conn.rollback()
+                            if object_name is not None:
+                                try:
+                                    client.remove_object(bucket, object_name)
+                                except S3Error:
+                                    pass
+                            raise
+                        finally:
+                            await file.close()
+                    else:
+                        log(useruuid[0], "WARNING", "Access denied; required permission is missing", "/uploadWebAppIcon", 403, "")
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Access denied; required permission is missing."
+                        )
+                else:
+                    log(useruuid[0], "ERROR", "User role is missing", "/uploadWebAppIcon", 500, "")
+                    raise HTTPException(
+                        status_code=500,
+                        detail="User role is missing"
+                    )
+            else:
+                log(useruuid[0], "WARNING", "Token is invalid or expired", "/uploadWebAppIcon", 401, "")
+                raise HTTPException(
+                    status_code=401,
+                    detail="Token is invalid or expired"
+                )
+        else:
+            log(None, "WARNING", "User not found", "/uploadWebAppIcon", 404, "")
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
