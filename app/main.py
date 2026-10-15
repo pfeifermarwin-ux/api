@@ -9,6 +9,7 @@ from minio import Minio
 from minio.error import S3Error
 from pathlib import Path
 from io import BytesIO
+from fastapi.responses import StreamingResponse
 
 app = FastAPI(
     root_path="/api"
@@ -1000,6 +1001,57 @@ async def upload_web_app_icon(username: str = Form(...), token: UUID = Form(...)
                 )
         else:
             log(None, "WARNING", "User not found", "/uploadWebAppIcon", 404, "")
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+
+@app.get("/webAppIcon/{icon_uuid}")
+def get_web_app_icon(icon_uuid: UUID, username: str, token: UUID):
+    with conn.cursor() as cur:
+        cur.execute("SELECT useruuid FROM users WHERE username = %s", (username,))
+        useruuid = cur.fetchone()
+        if useruuid:
+            cur.execute("SELECT token FROM logins WHERE useruuid = %s AND token = %s", (useruuid[0],token,))
+            token_info = cur.fetchone()
+            if token_info:
+                cur.execute("SELECT icon_uuid FROM webappsicons WHERE icon_uuid = %s", (icon_uuid,))
+                icon_info = cur.fetchone()
+                if icon_info:
+                    bucket = "web-apps-icons"
+                    object_name = str(icon_uuid)
+                    response = None
+                    try:
+                        response = client.get_object(bucket, object_name)
+                        content = response.read()
+                        content_type = response.headers.get(
+                            "Content-Type", "application/octet-stream"
+                        )
+                        return StreamingResponse(
+                            BytesIO(content),
+                            media_type=content_type,
+                        )
+                    except S3Error as e:
+                        log(useruuid[0], "ERROR", "Error at Silo Request", "/webAppIcon/{icon_uuid}", 502, str(e))
+                        raise HTTPException(status_code=502, detail="Failed to retrieve icon from storage")
+                    finally:
+                        if response is not None:
+                            response.close()
+                            response.release_conn()
+                else:
+                    log(useruuid[0], "WARNING", "Icon not found", "/webAppIcon/{icon_uuid}", 404, "")
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Icon not found"
+                    )
+            else:
+               log(useruuid[0], "WARNING", "Token is invalid or expired", "/webAppIcon/{icon_uuid}", 401, "")
+               raise HTTPException(
+                   status_code=401,
+                   detail="Token is invalid or expired"
+               ) 
+        else:
+            log(None, "WARNING", "User not found", "/webAppIcon/{icon_uuid}", 404, "")
             raise HTTPException(
                 status_code=404,
                 detail="User not found"
